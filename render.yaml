@@ -1,0 +1,50 @@
+databases:
+  - name: commonground-db
+    plan: free
+    databaseName: commonground
+    user: commonground
+
+services:
+  - type: web
+    name: commonground-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: DB_HOST
+        fromDatabase:
+          name: commonground-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: commonground-db
+          property: port
+      - key: DB_NAME
+        fromDatabase:
+          name: commonground-db
+          property: database
+      - key: DATABASE_USERNAME
+        fromDatabase:
+          name: commonground-db
+          property: user
+      - key: DATABASE_PASSWORD
+        fromDatabase:
+          name: commonground-db
+          property: password
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CORS_ALLOWED_ORIGINS
+        value: https://commonground-volunteer.vercel.app,http://localhost:3000
+      - key: FRONTEND_URL
+        value: https://commonground-volunteer.vercel.app
+      # Creates the Green Roots demo organization so the login page's demo buttons work.
+      - key: SEED_DEMO
+        value: "true"
+      - key: JAVA_TOOL_OPTIONS
+        value: -XX:MaxRAMPercentage=75 -XX:+UseSerialGC
+      - key: GOOGLE_CLIENT_IDS
+        sync: false
+      - key: GOOGLE_WEB_CLIENT_ID
+        sync: false

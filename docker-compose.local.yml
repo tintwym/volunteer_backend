@@ -1,0 +1,24 @@
+# Local development database. Start with:
+#   docker compose -f docker-compose.local.yml up -d
+# then run the API with the "local" profile (seeds demo data):
+#   SPRING_PROFILES_ACTIVE=local mvn spring-boot:run
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: commonground-db
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: commonground
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - commonground-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d commonground"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  commonground-db:
