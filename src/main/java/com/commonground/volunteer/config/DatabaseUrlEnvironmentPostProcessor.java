@@ -20,10 +20,17 @@ public class DatabaseUrlEnvironmentPostProcessor implements EnvironmentPostProce
   @Override
   public void postProcessEnvironment(ConfigurableEnvironment environment, SpringApplication application) {
     String raw = environment.getProperty("DATABASE_URL");
-    if (raw == null || !(raw.startsWith("postgres://") || raw.startsWith("postgresql://"))) {
+    if (raw == null) {
       return;
     }
-    URI uri = URI.create(raw.trim());
+    raw = raw.trim();
+    if (raw.startsWith("jdbc:postgresql://") && hasUserInfo(raw.substring("jdbc:".length()))) {
+      // The PostgreSQL driver rejects credentials inside a JDBC URL (it reads "user:pass" as host:port).
+      raw = raw.substring("jdbc:".length());
+    } else if (!(raw.startsWith("postgres://") || raw.startsWith("postgresql://"))) {
+      return;
+    }
+    URI uri = URI.create(raw);
     StringBuilder jdbc = new StringBuilder("jdbc:postgresql://").append(uri.getHost());
     if (uri.getPort() > 0) {
       jdbc.append(':').append(uri.getPort());
@@ -46,6 +53,13 @@ public class DatabaseUrlEnvironmentPostProcessor implements EnvironmentPostProce
       }
     }
     environment.getPropertySources().addFirst(new MapPropertySource("databaseUrl", props));
+  }
+
+  private static boolean hasUserInfo(String url) {
+    int start = url.indexOf("//") + 2;
+    int end = url.indexOf('/', start);
+    String authority = end >= 0 ? url.substring(start, end) : url.substring(start);
+    return authority.contains("@");
   }
 
   @Override

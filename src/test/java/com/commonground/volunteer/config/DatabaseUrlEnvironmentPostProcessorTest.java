@@ -35,6 +35,17 @@ class DatabaseUrlEnvironmentPostProcessorTest {
     assertThat(env.getProperty("spring.datasource.url")).isNull();
   }
 
+  @Test
+  void movesCredentialsOutOfJdbcUrl() {
+    StandardEnvironment env = envWith(
+        "jdbc:postgresql://neondb_owner:secret@ep-x-pooler.us-east-1.aws.neon.tech/neondb?channel_binding=require&sslmode=require");
+    processor.postProcessEnvironment(env, null);
+    assertThat(env.getProperty("spring.datasource.url"))
+        .isEqualTo("jdbc:postgresql://ep-x-pooler.us-east-1.aws.neon.tech/neondb?channel_binding=require&sslmode=require");
+    assertThat(env.getProperty("spring.datasource.username")).isEqualTo("neondb_owner");
+    assertThat(env.getProperty("spring.datasource.password")).isEqualTo("secret");
+  }
+
   private StandardEnvironment envWith(String databaseUrl) {
     StandardEnvironment env = new StandardEnvironment();
     env.getPropertySources().addFirst(new MapPropertySource("test", Map.of("DATABASE_URL", databaseUrl)));
