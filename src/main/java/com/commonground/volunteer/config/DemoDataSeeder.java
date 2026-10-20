@@ -32,12 +32,22 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-/** Seeds the Green Roots demo organization used by the web and Android demo logins. */
+/**
+ * Seeds one account per role (organizer, volunteer leader, volunteer) plus supporting
+ * volunteer peers and sample activity. Sign in with email + {@link #DEMO_PASSWORD} —
+ * there is no one-click demo login.
+ */
 @Component
 @ConditionalOnProperty(name = "app.seed-demo", havingValue = "true")
 public class DemoDataSeeder implements ApplicationRunner {
 
   public static final String DEMO_PASSWORD = "Password123!";
+
+  /** Canonical seeded accounts — one primary user per role. */
+  public static final String ORGANIZER_EMAIL = "marcus@greenroots.org";
+  public static final String LEADER_EMAIL = "jordan.lee@commonground.org";
+  public static final String VOLUNTEER_EMAIL = "alex.rivera@commonground.org";
+
   private static final Logger log = LoggerFactory.getLogger(DemoDataSeeder.class);
 
   private final OrganizationRepository organizations;
@@ -78,22 +88,79 @@ public class DemoDataSeeder implements ApplicationRunner {
   @Override
   @Transactional
   public void run(ApplicationArguments args) {
-    if (users.existsByEmailIgnoreCase("marcus@greenroots.org")) {
+    if (users.existsByEmailIgnoreCase(ORGANIZER_EMAIL)) {
+      // Already seeded: keep identities, fill missing profile details (e.g. phone).
+      backfillVolunteerDetails();
       return;
     }
 
+    Organization org = seedOrganization();
+    UserAccount organizer = seedOrganizer(org);
+    UserAccount leader = seedVolunteerLeader(org);
+    UserAccount volunteer = seedVolunteer(org);
+    UserAccount priya = seedSupportingVolunteer(org, "priya.nair@commonground.org", "Priya Nair", "+1 206 555 0104");
+    UserAccount sam = seedSupportingVolunteer(org, "sam.okafor@commonground.org", "Sam Okafor", "+1 206 555 0105");
+
+    seedSampleActivity(org, organizer, leader, volunteer, priya, sam);
+
+    log.info(
+        "Seeded role accounts for '{}' — organizer {}, leader {}, volunteer {} (password {})",
+        org.getName(), ORGANIZER_EMAIL, LEADER_EMAIL, VOLUNTEER_EMAIL, DEMO_PASSWORD
+    );
+  }
+
+  private void backfillVolunteerDetails() {
+    ensurePhone(ORGANIZER_EMAIL, "+1 206 555 0101");
+    ensurePhone(LEADER_EMAIL, "+1 206 555 0102");
+    ensurePhone(VOLUNTEER_EMAIL, "+1 206 555 0103");
+    ensurePhone("priya.nair@commonground.org", "+1 206 555 0104");
+    ensurePhone("sam.okafor@commonground.org", "+1 206 555 0105");
+  }
+
+  private void ensurePhone(String email, String phone) {
+    users.findByEmailIgnoreCase(email).ifPresent(user -> {
+      if (user.getPhone() == null || user.getPhone().isBlank()) {
+        user.setPhone(phone);
+        users.save(user);
+      }
+    });
+  }
+
+  private Organization seedOrganization() {
     Organization org = new Organization();
     org.setName("Green Roots Collective");
     org.setSlug(organizations.existsBySlug("green-roots-collective") ? "green-roots-demo" : "green-roots-collective");
     org.setDescription("Community gardening, food rescue and park restoration.");
-    org = organizations.save(org);
+    return organizations.save(org);
+  }
 
-    UserAccount marcus = user(org, "marcus@greenroots.org", "Marcus Vance", Role.ORGANIZER);
-    UserAccount jordan = user(org, "jordan.lee@commonground.org", "Jordan Lee", Role.VOLUNTEER_LEADER);
-    UserAccount alex = user(org, "alex.rivera@commonground.org", "Alex Rivera", Role.VOLUNTEER);
-    UserAccount priya = user(org, "priya.nair@commonground.org", "Priya Nair", Role.VOLUNTEER);
-    UserAccount sam = user(org, "sam.okafor@commonground.org", "Sam Okafor", Role.VOLUNTEER);
+  /** Role: ORGANIZER — owns the organization and publishes events. */
+  private UserAccount seedOrganizer(Organization org) {
+    return user(org, ORGANIZER_EMAIL, "Marcus Vance", Role.ORGANIZER, "+1 206 555 0101");
+  }
 
+  /** Role: VOLUNTEER_LEADER — runs shifts, attendance, and team tasks. */
+  private UserAccount seedVolunteerLeader(Organization org) {
+    return user(org, LEADER_EMAIL, "Jordan Lee", Role.VOLUNTEER_LEADER, "+1 206 555 0102");
+  }
+
+  /** Role: VOLUNTEER — primary volunteer with hours, tasks, and registrations. */
+  private UserAccount seedVolunteer(Organization org) {
+    return user(org, VOLUNTEER_EMAIL, "Alex Rivera", Role.VOLUNTEER, "+1 206 555 0103");
+  }
+
+  private UserAccount seedSupportingVolunteer(Organization org, String email, String name, String phone) {
+    return user(org, email, name, Role.VOLUNTEER, phone);
+  }
+
+  private void seedSampleActivity(
+      Organization org,
+      UserAccount marcus,
+      UserAccount jordan,
+      UserAccount alex,
+      UserAccount priya,
+      UserAccount sam
+  ) {
     LocalDate today = LocalDate.now();
     Event past = event(org, marcus, "Riverside Park Cleanup", "Environment", "Riverside Park",
         today.minusDays(7), LocalTime.of(9, 0), LocalTime.of(13, 0), 20, Event.Status.COMPLETED);
@@ -145,16 +212,14 @@ public class DemoDataSeeder implements ApplicationRunner {
         "You reached 25 hours of volunteering.", "/badges");
     notifications.notify(alex, "TASK_ASSIGNED", "New task: Bring seedlings from greenhouse",
         "Due " + today.plusDays(3), "/tasks");
-
-    log.info("Seeded demo organization '{}' — sign in as marcus@greenroots.org, jordan.lee@commonground.org "
-        + "or alex.rivera@commonground.org with password {}", org.getName(), DEMO_PASSWORD);
   }
 
-  private UserAccount user(Organization org, String email, String name, Role role) {
+  private UserAccount user(Organization org, String email, String name, Role role, String phone) {
     UserAccount u = new UserAccount();
     u.setEmail(email);
     u.setFullName(name);
     u.setRole(role);
+    u.setPhone(phone);
     u.setOrganization(org);
     u.setPasswordHash(passwordEncoder.encode(DEMO_PASSWORD));
     return users.save(u);
