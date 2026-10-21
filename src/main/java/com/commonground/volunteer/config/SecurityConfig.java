@@ -1,8 +1,11 @@
 package com.commonground.volunteer.config;
 
 import com.commonground.volunteer.security.JwtAuthenticationFilter;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -68,11 +71,16 @@ public class SecurityConfig {
     if (allowed == null || allowed.isBlank()) {
       allowed = "http://localhost:3000";
     }
-    List<String> origins = Arrays.stream(allowed.split(","))
-        .map(origin -> origin.trim())
+    Set<String> patterns = new LinkedHashSet<>();
+    Arrays.stream(allowed.split(","))
+        .map(String::trim)
         .filter(origin -> !origin.isEmpty())
-        .toList();
-    config.setAllowedOrigins(origins);
+        .forEach(patterns::add);
+    // Vercel production + preview deployments, and local Next.js ports.
+    patterns.add("https://*.vercel.app");
+    patterns.add("http://localhost:*");
+    patterns.add("http://127.0.0.1:*");
+    config.setAllowedOriginPatterns(new ArrayList<>(patterns));
     config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
     config.setAllowedHeaders(List.of("*"));
     config.setAllowCredentials(true);
