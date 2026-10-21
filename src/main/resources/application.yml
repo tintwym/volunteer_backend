@@ -41,6 +41,11 @@ app:
     # Comma-separated OAuth client IDs whose ID tokens are accepted (web + Android). Empty disables Google sign-in.
     client-ids: ${GOOGLE_CLIENT_IDS:}
     web-client-id: ${GOOGLE_WEB_CLIENT_ID:}
+  gemini:
+    api-key: ${GEMINI_API_KEY:}
+    model: ${GEMINI_MODEL:gemini-2.0-flash}
+    # When true and GEMINI_API_KEY is set, POST /api/chat is available.
+    enabled: ${GEMINI_ENABLED:true}
   # Creates the Green Roots demo organization and accounts on startup (local development only).
   seed-demo: ${SEED_DEMO:false}
 
