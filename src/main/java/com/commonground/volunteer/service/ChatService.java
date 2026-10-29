@@ -13,6 +13,8 @@ import com.commonground.volunteer.web.dto.MemberDtos.MySummary;
 import com.commonground.volunteer.web.dto.WorkDtos.TaskResponse;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -23,11 +25,13 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 
 @Service
 public class ChatService {
 
   private static final Logger log = LoggerFactory.getLogger(ChatService.class);
+  private static final ObjectMapper JSON = new ObjectMapper();
   private static final int MAX_HISTORY = 12;
   private static final int MAX_LIST_ITEMS = 8;
   private static final String SYSTEM_PROMPT = """
@@ -96,14 +100,15 @@ public class ChatService {
     String model = geminiProperties.model() == null || geminiProperties.model().isBlank()
         ? "gemini-2.0-flash"
         : geminiProperties.model().trim();
+    // Strip accidental whitespace/newlines from Render dashboard paste.
+    String apiKey = geminiProperties.apiKey().trim();
     String path = "/v1beta/models/" + model + ":generateContent";
 
     try {
+      // AI Studio auth keys (AQ.… since May 2026) prefer x-goog-api-key over ?key=.
       GeminiResponse response = restClient.post()
-          .uri(uriBuilder -> uriBuilder
-              .path(path)
-              .queryParam("key", geminiProperties.apiKey())
-              .build())
+          .uri(path)
+          .header("x-goog-api-key", apiKey)
           .contentType(MediaType.APPLICATION_JSON)
           .body(Map.of(
               "system_instruction", Map.of("parts", List.of(Map.of("text", SYSTEM_PROMPT))),
@@ -123,12 +128,50 @@ public class ChatService {
       return new ChatResponse(reply.trim());
     } catch (ApiException e) {
       throw e;
+    } catch (RestClientResponseException e) {
+      String detail = googleErrorMessage(e.getResponseBodyAsString());
+      log.warn("Gemini HTTP {}: {}", e.getStatusCode().value(), detail);
+      if (e.getStatusCode().value() == 401 || e.getStatusCode().value() == 403) {
+        throw new ApiException(
+            "Gemini rejected the API key. Check GEMINI_API_KEY on Render (AI Studio auth keys start with AQ.)."
+        );
+      }
+      if (e.getStatusCode().value() == 404) {
+        throw new ApiException(
+            "Gemini model not found (" + model + "). Set GEMINI_MODEL to gemini-2.0-flash or gemini-2.5-flash."
+        );
+      }
+      if (e.getStatusCode().value() == 429) {
+        throw new ApiException("Gemini free-tier rate limit hit. Wait a minute and try again.");
+      }
+      throw new ApiException(
+          detail != null
+              ? "Gemini error: " + detail
+              : "Could not reach the AI assistant. Please try again in a moment."
+      );
     } catch (RestClientException e) {
       log.warn("Gemini request failed: {}", e.getMessage());
       throw new ApiException("Could not reach the AI assistant. Please try again in a moment.");
     } catch (Exception e) {
       log.warn("Gemini unexpected error: {}", e.getMessage());
       throw new ApiException("The AI assistant failed to respond. Please try again.");
+    }
+  }
+
+  /** Pull a short human message from Gemini/Google JSON error bodies. */
+  private static String googleErrorMessage(String body) {
+    if (body == null || body.isBlank()) {
+      return null;
+    }
+    try {
+      JsonNode message = JSON.readTree(body).path("error").path("message");
+      if (!message.isTextual()) {
+        return null;
+      }
+      String msg = message.asText().trim().replace('\n', ' ');
+      return msg.length() > 180 ? msg.substring(0, 180) + "…" : msg;
+    } catch (Exception ignored) {
+      return null;
     }
   }
 
