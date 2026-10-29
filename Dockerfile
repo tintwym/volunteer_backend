@@ -13,7 +13,8 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends curl \
   && rm -rf /var/lib/apt/lists/* \
   && groupadd -r app && useradd -r -g app app
-ENV JAVA_OPTS="-XX:MaxRAMPercentage=75 -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Xss512k"
+# SerialGC + TieredStopAtLevel=1 + CDS archive (below) shorten Render free-tier cold starts.
+ENV JAVA_OPTS="-XX:MaxRAMPercentage=75 -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Xss512k -Dspring.jmx.enabled=false -Djava.security.egd=file:/dev/./urandom"
 COPY --from=build /app/target/*.jar app.jar
 # Render's free plan has ~0.1 CPU, where a cold JVM start takes minutes. A class data sharing
 # archive recorded at build time (context refresh only, no database needed) cuts that sharply.

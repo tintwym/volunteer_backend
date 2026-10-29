@@ -25,6 +25,14 @@ management:
   endpoint:
     health:
       show-details: when_authorized
+      probes:
+        enabled: true
+  health:
+    # Liveness stays up even if Neon is briefly unreachable (used for client warmup pings).
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
 
 app:
   jwt:
