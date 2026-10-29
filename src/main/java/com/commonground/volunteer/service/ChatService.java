@@ -98,7 +98,7 @@ public class ChatService {
     }
 
     String model = geminiProperties.model() == null || geminiProperties.model().isBlank()
-        ? "gemini-2.0-flash"
+        ? "gemini-2.5-flash"
         : geminiProperties.model().trim();
     // Strip accidental whitespace/newlines from Render dashboard paste.
     String apiKey = geminiProperties.apiKey().trim();
