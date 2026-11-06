@@ -111,7 +111,7 @@ public class ChatService {
           .header("x-goog-api-key", apiKey)
           .contentType(MediaType.APPLICATION_JSON)
           .body(Map.of(
-              "system_instruction", Map.of("parts", List.of(Map.of("text", SYSTEM_PROMPT))),
+              "systemInstruction", Map.of("parts", List.of(Map.of("text", SYSTEM_PROMPT))),
               "contents", contents,
               "generationConfig", Map.of(
                   "temperature", 0.4,
@@ -132,14 +132,10 @@ public class ChatService {
       String detail = googleErrorMessage(e.getResponseBodyAsString());
       log.warn("Gemini HTTP {}: {}", e.getStatusCode().value(), detail);
       if (e.getStatusCode().value() == 401 || e.getStatusCode().value() == 403) {
-        throw new ApiException(
-            "Gemini rejected the API key. Check GEMINI_API_KEY on Render (AI Studio auth keys start with AQ.)."
-        );
+        throw new ApiException("The assistant could not sign in to Gemini. Ask an administrator to check the API key.");
       }
       if (e.getStatusCode().value() == 404) {
-        throw new ApiException(
-            "Gemini model not found (" + model + "). Set GEMINI_MODEL to gemini-2.0-flash or gemini-2.5-flash."
-        );
+        throw new ApiException("The assistant model is unavailable. Ask an administrator to set GEMINI_MODEL to a Flash model.");
       }
       if (e.getStatusCode().value() == 429) {
         throw new ApiException("Gemini free-tier rate limit hit. Wait a minute and try again.");
