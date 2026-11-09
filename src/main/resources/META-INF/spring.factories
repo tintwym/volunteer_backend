@@ -1,2 +1,2 @@
 org.springframework.boot.env.EnvironmentPostProcessor=\
-com.commonground.volunteer.config.DatabaseUrlEnvironmentPostProcessor
+dev.tintwym.volunteer.config.DatabaseUrlEnvironmentPostProcessor

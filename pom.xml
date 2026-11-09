@@ -11,7 +11,7 @@
     <relativePath/>
   </parent>
 
-  <groupId>com.commonground</groupId>
+  <groupId>dev.tintwym</groupId>
   <artifactId>volunteer-api</artifactId>
   <version>0.0.1-SNAPSHOT</version>
   <name>volunteer-api</name>
