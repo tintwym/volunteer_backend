@@ -54,6 +54,9 @@ app:
     model: ${GEMINI_MODEL:gemini-2.5-flash}
     # When true and GEMINI_API_KEY is set, POST /api/chat is available.
     enabled: ${GEMINI_ENABLED:true}
+  firebase:
+    # Full service-account JSON string. Empty = in-app notifications only (no FCM).
+    credentials-json: ${FIREBASE_CREDENTIALS_JSON:}
   # Creates the Green Roots demo organization and accounts on startup (local development only).
   seed-demo: ${SEED_DEMO:false}
 

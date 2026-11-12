@@ -18,9 +18,12 @@ import org.springframework.transaction.annotation.Transactional;
 public class NotificationService {
 
   private final NotificationRepository notificationRepository;
+  private final FcmPushService fcmPushService;
 
-  public NotificationService(NotificationRepository notificationRepository) {
+  public NotificationService(
+      NotificationRepository notificationRepository, FcmPushService fcmPushService) {
     this.notificationRepository = notificationRepository;
+    this.fcmPushService = fcmPushService;
   }
 
   @Transactional
@@ -32,6 +35,7 @@ public class NotificationService {
     n.setBody(body);
     n.setLink(link);
     notificationRepository.save(n);
+    fcmPushService.sendToUser(user.getId(), title, body, link);
   }
 
   @Transactional
